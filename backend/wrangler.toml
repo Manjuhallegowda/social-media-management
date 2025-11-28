@@ -1,6 +1,6 @@
 # Cloudflare Worker Configuration for SocialSync Backend
 
-name = "socialsync-backend"
+name = "iycsocialmediatool"
 main = "worker.ts"
 compatibility_date = "2024-03-20"
 
