@@ -1,12 +1,11 @@
 # Cloudflare Worker Configuration for SocialSync Backend
 
-name = "iycsocialmediatool"
+name = "social-media-management"
 main = "worker.ts"
 compatibility_date = "2024-03-20"
-
-# YOUR REAL CLOUDFLARE ACCOUNT ID
 account_id = "42b74f3369d05a614bfa67231af0cd5c"
 
+routes = ["www.iyckarnataka.com/api/*"]
 
 # ===========================
 # 🚀 SERVICE BINDINGS

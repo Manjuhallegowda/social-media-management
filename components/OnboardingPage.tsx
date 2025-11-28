@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Facebook, CheckCircle, AlertTriangle, ShieldCheck, ArrowRight, Lock, Loader2 } from 'lucide-react';
+import { API_URL } from '../services/config';
 
 export const OnboardingPage: React.FC = () => {
   const [step, setStep] = useState<'verify' | 'connect'>('verify');
@@ -38,7 +39,7 @@ export const OnboardingPage: React.FC = () => {
       setIsVerifying(true);
       
       try {
-          const res = await fetch('/api/verify-user', {
+          const res = await fetch(`${API_URL}/verify-user`, {
               method: 'POST',
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({ username: username.trim() })
@@ -73,7 +74,7 @@ export const OnboardingPage: React.FC = () => {
     
     // Send 'source=onboarding' to tell the backend to redirect back here
     window.open(
-      '/api/auth/login?source=onboarding', 
+      `${API_URL}/auth/login?source=onboarding`, 
       'SocialSyncConnect', 
       `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes`
     );

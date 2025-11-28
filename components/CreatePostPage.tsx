@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { Upload, Wand2, Send, Image as ImageIcon, X } from 'lucide-react';
 import { generateCreativeCaptions } from '../services/geminiService';
+import { API_URL } from '../services/config';
 
 export const CreatePostPage: React.FC = () => {
   const [caption, setCaption] = useState('');
@@ -41,7 +42,7 @@ export const CreatePostPage: React.FC = () => {
         const formData = new FormData();
         formData.append('file', imageFile);
         
-        const uploadRes = await fetch('/api/upload', {
+        const uploadRes = await fetch(`${API_URL}/upload`, {
             method: 'POST',
             body: formData
         });
@@ -51,7 +52,7 @@ export const CreatePostPage: React.FC = () => {
         const { url: imageUrl } = await uploadRes.json();
         
         // 2. Create Post
-        const postRes = await fetch('/api/posts', {
+        const postRes = await fetch(`${API_URL}/posts`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ caption, imageUrl })

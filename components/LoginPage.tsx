@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Lock, User, Loader2, AlertCircle } from 'lucide-react';
+import { API_URL } from '../services/config';
 
 interface LoginPageProps {
   onLogin: (token: string) => void;
@@ -24,7 +25,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     try {
       // In a real app, this URL should be your actual worker URL
       // If you are developing locally, ensure your proxy is set up or use the full URL
-      const response = await fetch('/api/admin/login', {
+      const response = await fetch(`${API_URL}/admin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),

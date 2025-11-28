@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowUpRight, CheckCircle2, AlertCircle, Users } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { API_URL } from '../services/config';
 
 interface DashboardProps {
   onViewChange: (view: any) => void;
@@ -18,7 +19,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
   });
 
   useEffect(() => {
-    fetch('/api/dashboard-stats')
+    fetch(`${API_URL}/dashboard-stats`)
         .then(res => res.json())
         .then(data => setStats(data))
         .catch(err => console.error("Failed to fetch dashboard stats", err));

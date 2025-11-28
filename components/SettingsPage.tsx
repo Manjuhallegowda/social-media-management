@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   CheckCircle,
 } from 'lucide-react';
+import { API_URL } from '../services/config';
 
 interface SystemStatus {
   database: { status: string; message: string };
@@ -24,7 +25,7 @@ export const SettingsPage: React.FC = () => {
   const fetchStatus = () => {
     setLoading(true);
     setError(null);
-    fetch('/api/system-status')
+    fetch(`${API_URL}/system-status`)
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch status');
         return res.json();
