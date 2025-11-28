@@ -1,0 +1,5 @@
+{
+  "name": "SocialSync Broadcast",
+  "description": "A centralized management dashboard to broadcast posts to hundreds of Instagram/Facebook accounts using Meta Graph API and Cloudflare infrastructure.",
+  "requestFramePermissions": []
+}

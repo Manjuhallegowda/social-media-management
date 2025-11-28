@@ -1,0 +1,49 @@
+# Cloudflare Worker Configuration for SocialSync Backend
+
+name = "socialsync-backend"
+main = "worker.ts"
+compatibility_date = "2024-03-20"
+
+# YOUR REAL CLOUDFLARE ACCOUNT ID
+account_id = "42b74f3369d05a614bfa67231af0cd5c"
+
+
+# ===========================
+# 🚀 SERVICE BINDINGS
+# ===========================
+
+# D1 Database (Requires YOUR actual DB ID)
+[[d1_databases]]
+binding = "DB"
+database_name = "socialsync-db"
+# Run: npx wrangler d1 list and paste your DB ID below
+database_id = "4b6beb07-c990-46e4-b28d-47182ac87c99"
+
+
+# R2 File Storage Bucket
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "socialsync-uploads"
+
+
+# Cloudflare Queue
+[[queues.producers]]
+binding = "QUEUE"
+queue = "socialsync-jobs"
+
+
+# ===========================
+# 🔐 ENVIRONMENT VARIABLES
+# ===========================
+#
+# These are NOT stored in this file.
+# For production, run these commands one-by-one:
+#
+#   npx wrangler secret put META_APP_ID
+#   npx wrangler secret put META_APP_SECRET
+#   npx wrangler secret put META_REDIRECT_URI
+#   npx wrangler secret put FRONTEND_URL
+#   npx wrangler secret put ENCRYPTION_KEY
+#   npx wrangler secret put API_SECRET
+#
+# Copy/paste values when prompted.
