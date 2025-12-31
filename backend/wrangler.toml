@@ -3,9 +3,9 @@
 name = "social-media-management"
 main = "worker.ts"
 compatibility_date = "2024-03-20"
-account_id = "42b74f3369d05a614bfa67231af0cd5c"
+account_id = "591d7e6f55bef48a67ba7ce7ab782bb2"
 
-routes = ["www.iyckarnataka.com/api/*"]
+
 
 # ===========================
 # 🚀 SERVICE BINDINGS
@@ -14,15 +14,15 @@ routes = ["www.iyckarnataka.com/api/*"]
 # D1 Database (Requires YOUR actual DB ID)
 [[d1_databases]]
 binding = "DB"
-database_name = "socialsync-db"
+database_name = "social-media-data"
 # Run: npx wrangler d1 list and paste your DB ID below
-database_id = "4b6beb07-c990-46e4-b28d-47182ac87c99"
+database_id = "ccb15cd8-c533-4ebb-ab6c-fabae495e845"
 
 
 # R2 File Storage Bucket
 [[r2_buckets]]
 binding = "BUCKET"
-bucket_name = "socialsync-uploads"
+bucket_name = "social-media-posts"
 
 
 # Cloudflare Queue

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
@@ -8,7 +7,12 @@ import { CreatePostPage } from './components/CreatePostPage';
 import { PostHistoryPage } from './components/PostHistoryPage';
 import { SettingsPage } from './components/SettingsPage';
 import { OnboardingPage } from './components/OnboardingPage';
-import { PrivacyPolicy, TermsOfService, DataDeletion } from './components/LegalPages';
+import {
+  PrivacyPolicy,
+  TermsOfService,
+  DataDeletion,
+} from './components/LegalPages';
+import { LoginPage } from './components/LoginPage';
 
 // Simple Hash-based routing for SPA without server config
 enum View {
@@ -21,26 +25,57 @@ enum View {
   ONBOARDING = 'onboarding',
   PRIVACY = 'privacy',
   TERMS = 'terms',
-  DATA_DELETION = 'data_deletion'
+  DATA_DELETION = 'data_deletion',
 }
 
 const App: React.FC = () => {
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem('isAuthenticated') === 'true';
+  });
+  const [currentUsername, setCurrentUsername] = useState<string>(() => {
+    return localStorage.getItem('currentUsername') || '';
+  });
+
   // Initialize view from URL hash if present
   const [currentView, setCurrentView] = useState<View>(() => {
-    const hash = window.location.hash.replace('#', '').split('?')[0]; // Split query params
-    return Object.values(View).includes(hash as View) ? (hash as View) : View.DASHBOARD;
+    const hash = window.location.hash.replace('#', '').split('?')[0];
+    return Object.values(View).includes(hash as View)
+      ? (hash as View)
+      : View.DASHBOARD;
   });
 
   useEffect(() => {
     const handleHashChange = () => {
-       const hash = window.location.hash.replace('#', '').split('?')[0];
-       if (Object.values(View).includes(hash as View)) {
-         setCurrentView(hash as View);
-       }
+      const hash = window.location.hash.replace('#', '').split('?')[0];
+      if (Object.values(View).includes(hash as View)) {
+        setCurrentView(hash as View);
+      }
     };
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
+
+  const handleLogin = (username: string) => {
+    setIsAuthenticated(true);
+    setCurrentUsername(username);
+    localStorage.setItem('isAuthenticated', 'true');
+    localStorage.setItem('currentUsername', username);
+    window.location.hash = 'dashboard';
+    setCurrentView(View.DASHBOARD);
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setCurrentUsername('');
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('currentUsername');
+  };
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
 
   const handleViewChange = (view: View) => {
     window.location.hash = view;
@@ -73,7 +108,12 @@ const App: React.FC = () => {
   };
 
   return (
-    <Layout currentView={currentView} onViewChange={handleViewChange}>
+    <Layout
+      currentView={currentView}
+      onViewChange={handleViewChange}
+      username={currentUsername}
+      onLogout={handleLogout}
+    >
       {renderView()}
     </Layout>
   );

@@ -1,10 +1,9 @@
-
 import React, { useState } from 'react';
 import { Lock, User, Loader2, AlertCircle } from 'lucide-react';
 import { API_URL } from '../services/config';
 
 interface LoginPageProps {
-  onLogin: (token: string) => void;
+  onLogin: (username: string) => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
@@ -23,32 +22,32 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
 
     try {
-      // In a real app, this URL should be your actual worker URL
-      // If you are developing locally, ensure your proxy is set up or use the full URL
       const response = await fetch(`${API_URL}/admin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
-        signal: controller.signal
+        signal: controller.signal,
       });
-      
+
       clearTimeout(timeoutId);
 
       // Check if response is actually JSON (handles 404/500 HTML pages from proxies)
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error(`Server returned unexpected format: ${response.status}`);
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(
+          `Server returned unexpected format: ${response.status}`
+        );
       }
 
       const data = await response.json();
 
       if (response.ok && data.success) {
-        onLogin(data.token);
+        onLogin(data.username);
       } else {
         setError(data.error || 'Login failed');
       }
     } catch (err: any) {
-      console.error("Login Error:", err);
+      console.error('Login Error:', err);
       if (err.name === 'AbortError') {
         setError('Server timed out. Please check your connection.');
       } else {
@@ -67,7 +66,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             <Lock className="text-white" size={24} />
           </div>
           <h1 className="text-2xl font-bold text-white">SocialSync Admin</h1>
-          <p className="text-slate-400 text-sm mt-1">Please sign in to continue</p>
+          <p className="text-slate-400 text-sm mt-1">
+            Please sign in to continue
+          </p>
         </div>
 
         <div className="p-8 flex-1 flex flex-col justify-center">
@@ -80,7 +81,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Username
+              </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                   <User size={18} />
@@ -92,12 +95,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                   placeholder="admin"
+                  autoComplete="username"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Password
+              </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                   <Lock size={18} />
@@ -109,6 +115,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                   placeholder="••••••••"
+                  autoComplete="current-password"
                 />
               </div>
             </div>
@@ -129,19 +136,29 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           </form>
 
           <p className="text-center text-xs text-slate-400 mt-6">
-            Default credentials for first run: <span className="font-mono text-slate-500">admin / password</span>
+            Default credentials for first run:{' '}
+            <span className="font-mono text-slate-500">admin / password</span>
           </p>
         </div>
 
         {/* Footer */}
         <div className="bg-slate-50 p-4 border-t border-slate-100">
-           <div className="flex flex-wrap justify-center gap-4 text-xs text-slate-400">
-             <a href="#privacy" className="hover:text-slate-600 hover:underline">Privacy Policy</a>
-             <span>|</span>
-             <a href="#terms" className="hover:text-slate-600 hover:underline">Terms of Service</a>
-             <span>|</span>
-             <a href="#data_deletion" className="hover:text-slate-600 hover:underline">Data Deletion</a>
-           </div>
+          <div className="flex flex-wrap justify-center gap-4 text-xs text-slate-400">
+            <a href="#privacy" className="hover:text-slate-600 hover:underline">
+              Privacy Policy
+            </a>
+            <span>|</span>
+            <a href="#terms" className="hover:text-slate-600 hover:underline">
+              Terms of Service
+            </a>
+            <span>|</span>
+            <a
+              href="#data_deletion"
+              className="hover:text-slate-600 hover:underline"
+            >
+              Data Deletion
+            </a>
+          </div>
         </div>
       </div>
     </div>

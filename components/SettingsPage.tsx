@@ -7,6 +7,11 @@ import {
   RefreshCw,
   AlertTriangle,
   CheckCircle,
+  UserPlus,
+  Trash2,
+  Users,
+  Key,
+  X,
 } from 'lucide-react';
 import { API_URL } from '../services/config';
 
@@ -17,10 +22,29 @@ interface SystemStatus {
   env: Record<string, boolean>;
 }
 
+interface AdminUser {
+  id: string;
+  username: string;
+  is_active: number;
+  created_at: number;
+  last_login: number | null;
+}
+
 export const SettingsPage: React.FC = () => {
   const [status, setStatus] = useState<SystemStatus | null>(null);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Admin management state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   const fetchStatus = () => {
     setLoading(true);
@@ -35,8 +59,20 @@ export const SettingsPage: React.FC = () => {
       .finally(() => setLoading(false));
   };
 
+  const fetchAdminUsers = () => {
+    fetch(`${API_URL}/admin/users`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setAdminUsers(data);
+        }
+      })
+      .catch((err) => console.error('Failed to fetch admin users:', err));
+  };
+
   useEffect(() => {
     fetchStatus();
+    fetchAdminUsers();
   }, []);
 
   const getStatusColor = (s: string) => {
@@ -51,8 +87,113 @@ export const SettingsPage: React.FC = () => {
     return <AlertTriangle size={16} className="text-rose-500" />;
   };
 
+  const handleAddAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      const res = await fetch(`${API_URL}/admin/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: newUsername, password: newPassword }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setShowAddModal(false);
+        setNewUsername('');
+        setNewPassword('');
+        fetchAdminUsers();
+        showNotification('success', 'Admin user created successfully');
+      } else {
+        showNotification('error', data.error || 'Failed to create admin');
+      }
+    } catch (err) {
+      showNotification('error', 'Network error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteAdmin = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this admin user?')) return;
+
+    try {
+      const res = await fetch(`${API_URL}/admin/users?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        fetchAdminUsers();
+        showNotification('success', 'Admin user deleted');
+      } else {
+        showNotification('error', data.error || 'Failed to delete admin');
+      }
+    } catch (err) {
+      showNotification('error', 'Network error');
+    }
+  };
+
+  const handleToggleActive = async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/admin/users/toggle`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        fetchAdminUsers();
+        showNotification(
+          'success',
+          `Admin ${data.is_active ? 'activated' : 'deactivated'}`
+        );
+      } else {
+        showNotification('error', data.error || 'Failed to update admin');
+      }
+    } catch (err) {
+      showNotification('error', 'Network error');
+    }
+  };
+
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Toast Notification */}
+      {notification && (
+        <div
+          className={`p-4 rounded-lg flex items-center justify-between shadow-sm animate-in slide-in-from-top-2 duration-200 fixed top-6 right-6 z-50 max-w-sm ${
+            notification.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              : 'bg-rose-50 text-rose-800 border border-rose-200'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {notification.type === 'success' ? (
+              <CheckCircle size={20} />
+            ) : (
+              <AlertTriangle size={20} />
+            )}
+            <span className="font-medium text-sm">{notification.message}</span>
+          </div>
+          <button
+            onClick={() => setNotification(null)}
+            className="hover:opacity-75 ml-4"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
       <header className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Settings</h2>
@@ -217,10 +358,164 @@ export const SettingsPage: React.FC = () => {
               </table>
             </div>
           </div>
+
+          {/* Admin Users Management */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                <Users size={20} className="text-blue-500" />
+                Admin Users
+              </h3>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+              >
+                <UserPlus size={16} />
+                Add Admin
+              </button>
+            </div>
+
+            <div className="overflow-hidden rounded-lg border border-slate-200">
+              <table className="min-w-full divide-y divide-slate-200 bg-slate-50">
+                <thead className="bg-slate-100">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Username
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Created
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Last Login
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {adminUsers.map((user) => (
+                    <tr key={user.id}>
+                      <td className="px-6 py-3 text-sm font-medium text-slate-800">
+                        {user.username}
+                      </td>
+                      <td className="px-6 py-3 text-sm">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            user.is_active
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {user.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3 text-sm text-slate-500">
+                        {new Date(user.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-3 text-sm text-slate-500">
+                        {user.last_login
+                          ? new Date(user.last_login).toLocaleString()
+                          : 'Never'}
+                      </td>
+                      <td className="px-6 py-3 text-sm text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => handleToggleActive(user.id)}
+                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title={user.is_active ? 'Deactivate' : 'Activate'}
+                          >
+                            <Key size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAdmin(user.id)}
+                            className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                            title="Delete admin"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="bg-white p-12 text-center rounded-xl border border-slate-200 text-slate-500">
           {loading ? 'Checking system status...' : 'System status unavailable.'}
+        </div>
+      )}
+
+      {/* Add Admin Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-slate-800">
+                Add New Admin
+              </h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddAdmin} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  placeholder="Enter username"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  placeholder="Min 6 characters"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Creating...' : 'Create Admin'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

@@ -85,7 +85,9 @@ async function decryptToken(
     const key = await getCryptoKey(secret);
 
     const fromHex = (hex: string) =>
-      new Uint8Array(hex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)));
+      new Uint8Array(
+        (hex.match(/.{1,2}/g) || []).map((byte) => parseInt(byte, 16))
+      );
 
     const decrypted = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: fromHex(ivHex) },
@@ -185,6 +187,135 @@ function processCaption(base: string, accountName: string): string {
 }
 
 // -----------------------------------------------------------------------------
+// HELPER: Password Hashing (bcrypt-like using PBKDF2)
+// -----------------------------------------------------------------------------
+
+async function hashPassword(
+  password: string,
+  secretKey: string
+): Promise<string> {
+  const encoder = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  );
+
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    256
+  );
+
+  const hashArray = Array.from(new Uint8Array(derivedBits));
+  const hashHex = hashArray
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  // Convert salt correctly
+  const saltHex = Array.from(salt)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  // Return as: iterations:salt:hash
+  return `100000:${saltHex}:${hashHex}`;
+}
+
+async function verifyPassword(
+  password: string,
+  storedHash: string,
+  secretKey: string
+): Promise<boolean> {
+  try {
+    const parts = storedHash.split(':');
+    if (parts.length !== 3) return false;
+
+    const [iterations, saltHex, hashPart] = parts;
+    const encoder = new TextEncoder();
+
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(password),
+      { name: 'PBKDF2' },
+      false,
+      ['deriveBits']
+    );
+
+    const derivedBits = await crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        salt: Uint8Array.from(
+          saltHex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16))
+        ),
+        iterations: parseInt(iterations),
+        hash: 'SHA-256',
+      },
+      keyMaterial,
+      256
+    );
+
+    const hashArray = Array.from(new Uint8Array(derivedBits));
+    const computedHash = hashArray
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    return computedHash === hashPart;
+  } catch (e) {
+    console.error('Password verification failed', e);
+    return false;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// HELPER: Initialize Admin User (First Run)
+// -----------------------------------------------------------------------------
+
+async function ensureAdminUser(env: Env, secretKey: string) {
+  try {
+    // Ensure admin_users table exists
+    await env.DB.prepare(
+      `CREATE TABLE IF NOT EXISTS admin_users (
+        id TEXT PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        is_active INTEGER DEFAULT 1,
+        created_at INTEGER,
+        last_login INTEGER
+      )`
+    ).run();
+
+    // Check if admin user exists
+    const existing = await env.DB.prepare(
+      'SELECT id FROM admin_users WHERE username = ?'
+    )
+      .bind('admin')
+      .first();
+
+    if (!existing) {
+      // Create default admin user: admin / password
+      const passwordHash = await hashPassword('password', secretKey);
+      await env.DB.prepare(
+        'INSERT INTO admin_users (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)'
+      )
+        .bind(crypto.randomUUID(), 'admin', passwordHash, Date.now())
+        .run();
+      console.log('Created default admin user: admin / password');
+    }
+  } catch (e) {
+    console.error('Failed to ensure admin user:', e);
+  }
+}
+
+// -----------------------------------------------------------------------------
 // WORKER ENTRY POINT
 // -----------------------------------------------------------------------------
 export default {
@@ -206,6 +337,9 @@ export default {
 
     // Use ENCRYPTION_KEY if set, otherwise fallback to API_SECRET for dev convenience
     const secretKey = env.ENCRYPTION_KEY || env.API_SECRET;
+
+    // Ensure admin_users table and default admin exist
+    await ensureAdminUser(env, secretKey);
 
     // Ensure allowed_users table exists (Lazy migration for demo purposes)
     try {
@@ -597,20 +731,345 @@ export default {
         );
       }
 
-      // SYSTEM STATUS ENDPOINT (Real Checks)
-      // PROTECTED: Requires API_SECRET
-      if (path === '/api/system-status' && method === 'GET') {
-        // Authorization check
-        const authHeader = request.headers.get('Authorization');
-        const token = authHeader?.replace('Bearer ', '');
+      // -----------------------------------------------------------------------
+      // ADMIN AUTHENTICATION ENDPOINTS
+      // -----------------------------------------------------------------------
 
-        if (token !== env.API_SECRET) {
-          return new Response('Unauthorized', {
-            status: 401,
+      // Admin Login
+      if (path === '/api/admin/login' && method === 'POST') {
+        const { username, password } = (await request.json()) as any;
+
+        if (!username || !password) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Username and password required',
+            }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        try {
+          const user = await env.DB.prepare(
+            'SELECT * FROM admin_users WHERE lower(username) = lower(?) AND is_active = 1'
+          )
+            .bind(username)
+            .first();
+
+          if (user) {
+            const isValid = await verifyPassword(
+              password,
+              user.password_hash,
+              secretKey
+            );
+
+            if (isValid) {
+              // Update last login
+              await env.DB.prepare(
+                'UPDATE admin_users SET last_login = ? WHERE id = ?'
+              )
+                .bind(Date.now(), user.id)
+                .run();
+
+              return new Response(
+                JSON.stringify({
+                  success: true,
+                  username: user.username,
+                  message: 'Login successful',
+                }),
+                {
+                  headers: {
+                    ...corsHeaders,
+                    'Content-Type': 'application/json',
+                  },
+                }
+              );
+            }
+          }
+
+          return new Response(
+            JSON.stringify({ success: false, error: 'Invalid credentials' }),
+            {
+              status: 401,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        } catch (e: any) {
+          console.error('Login error:', e);
+          return new Response(
+            JSON.stringify({ success: false, error: 'Authentication failed' }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+      }
+
+      // Get All Admin Users
+      if (path === '/api/admin/users' && method === 'GET') {
+        try {
+          const { results } = await env.DB.prepare(
+            'SELECT id, username, is_active, created_at, last_login FROM admin_users ORDER BY created_at DESC'
+          ).all();
+
+          return new Response(JSON.stringify(results), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } catch (e: any) {
+          return new Response(JSON.stringify({ error: e.message }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
+      // Create New Admin User
+      if (path === '/api/admin/users' && method === 'POST') {
+        const { username, password } = (await request.json()) as any;
+
+        if (!username || !password) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Username and password required',
+            }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        if (password.length < 6) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Password must be at least 6 characters',
+            }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        try {
+          const passwordHash = await hashPassword(password, secretKey);
+
+          await env.DB.prepare(
+            'INSERT INTO admin_users (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)'
+          )
+            .bind(
+              crypto.randomUUID(),
+              username.trim(),
+              passwordHash,
+              Date.now()
+            )
+            .run();
+
+          return new Response(
+            JSON.stringify({ success: true, message: 'Admin user created' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } catch (e: any) {
+          if (e.message?.includes('UNIQUE constraint')) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'Username already exists',
+              }),
+              {
+                status: 400,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              }
+            );
+          }
+          return new Response(
+            JSON.stringify({ success: false, error: e.message }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+      }
+
+      // Update Admin Password
+      if (path === '/api/admin/users/password' && method === 'PUT') {
+        const { username, newPassword } = (await request.json()) as any;
+
+        if (!username || !newPassword || newPassword.length < 6) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Username and new password (min 6 chars) required',
+            }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        try {
+          const passwordHash = await hashPassword(newPassword, secretKey);
+
+          const result = await env.DB.prepare(
+            'UPDATE admin_users SET password_hash = ? WHERE lower(username) = lower(?)'
+          )
+            .bind(passwordHash, username)
+            .run();
+
+          if (result.success) {
+            return new Response(
+              JSON.stringify({ success: true, message: 'Password updated' }),
+              {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              }
+            );
+          } else {
+            return new Response(
+              JSON.stringify({ success: false, error: 'User not found' }),
+              {
+                status: 404,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              }
+            );
+          }
+        } catch (e: any) {
+          return new Response(
+            JSON.stringify({ success: false, error: e.message }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+      }
+
+      // Delete Admin User
+      if (path === '/api/admin/users' && method === 'DELETE') {
+        const urlParams = new URL(request.url).searchParams;
+        const id = urlParams.get('id');
+
+        if (!id) {
+          return new Response('Missing id', {
+            status: 400,
             headers: corsHeaders,
           });
         }
-        
+
+        // Prevent deleting the last admin
+        const countResult = await env.DB.prepare(
+          'SELECT count(*) as count FROM admin_users'
+        ).first('count');
+        if (countResult && countResult.count <= 1) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Cannot delete the last admin user',
+            }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        try {
+          await env.DB.prepare('DELETE FROM admin_users WHERE id = ?')
+            .bind(id)
+            .run();
+
+          return new Response(JSON.stringify({ success: true }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } catch (e: any) {
+          return new Response(JSON.stringify({ error: e.message }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
+      // Toggle Admin Active Status
+      if (path === '/api/admin/users/toggle' && method === 'PUT') {
+        const { id } = (await request.json()) as any;
+
+        if (!id) {
+          return new Response('Missing id', {
+            status: 400,
+            headers: corsHeaders,
+          });
+        }
+
+        try {
+          // Get current status
+          const user = await env.DB.prepare(
+            'SELECT is_active FROM admin_users WHERE id = ?'
+          )
+            .bind(id)
+            .first();
+
+          if (!user) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'User not found' }),
+              {
+                status: 404,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              }
+            );
+          }
+
+          const newStatus = user.is_active ? 0 : 1;
+
+          // Check if trying to deactivate the last active admin
+          if (newStatus === 0) {
+            const activeCount = await env.DB.prepare(
+              'SELECT count(*) as count FROM admin_users WHERE is_active = 1'
+            ).first('count');
+            if (activeCount && activeCount.count <= 1) {
+              return new Response(
+                JSON.stringify({
+                  success: false,
+                  error: 'Cannot deactivate the last active admin',
+                }),
+                {
+                  status: 400,
+                  headers: {
+                    ...corsHeaders,
+                    'Content-Type': 'application/json',
+                  },
+                }
+              );
+            }
+          }
+
+          await env.DB.prepare(
+            'UPDATE admin_users SET is_active = ? WHERE id = ?'
+          )
+            .bind(newStatus, id)
+            .run();
+
+          return new Response(
+            JSON.stringify({ success: true, is_active: newStatus }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } catch (e: any) {
+          return new Response(JSON.stringify({ error: e.message }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
+      // SYSTEM STATUS ENDPOINT (Real Checks)
+      // Accessible to authenticated admins
+      if (path === '/api/system-status' && method === 'GET') {
         const status: any = {
           database: { status: 'unknown', message: '' },
           storage: { status: 'unknown', message: '' },

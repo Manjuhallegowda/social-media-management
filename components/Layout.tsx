@@ -1,10 +1,9 @@
-
 import React, { useState } from 'react';
-import { 
-  LayoutDashboard, 
-  Users, 
-  PenSquare, 
-  History, 
+import {
+  LayoutDashboard,
+  Users,
+  PenSquare,
+  History,
   Settings,
   ChevronDown,
   ChevronRight,
@@ -12,40 +11,54 @@ import {
   FileText,
   Trash2,
   Menu,
-  X
+  X,
+  LogOut,
+  User,
 } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
   currentView: string;
   onViewChange: (view: any) => void;
+  username: string;
+  onLogout: () => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewChange }) => {
+export const Layout: React.FC<LayoutProps> = ({
+  children,
+  currentView,
+  onViewChange,
+  username,
+  onLogout,
+}) => {
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
-    'accounts-group': true // Default open
+    'accounts-group': true,
   });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const toggleMenu = (id: string) => {
-    setExpandedMenus(prev => ({ ...prev, [id]: !prev[id] }));
+    setExpandedMenus((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const handleNavClick = (viewId: string) => {
-      onViewChange(viewId);
-      setIsMobileMenuOpen(false); // Close mobile menu on navigation
+    onViewChange(viewId);
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleLogout = () => {
+    onLogout();
   };
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { 
-      id: 'accounts-group', 
-      label: 'Accounts', 
+    {
+      id: 'accounts-group',
+      label: 'Accounts',
       icon: Users,
       children: [
         { id: 'accounts', label: 'Connected Accounts' },
-        { id: 'access_control', label: 'Access Control' }
-      ]
+        { id: 'access_control', label: 'Access Control' },
+      ],
     },
     { id: 'create_post', label: 'Create Post', icon: PenSquare },
     { id: 'post_history', label: 'History', icon: History },
@@ -53,30 +66,33 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewCha
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
-      
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
-        <div 
-            className="fixed inset-0 bg-slate-900/50 z-20 md:hidden backdrop-blur-sm"
-            onClick={() => setIsMobileMenuOpen(false)}
+        <div
+          className="fixed inset-0 bg-slate-900/50 z-20 md:hidden backdrop-blur-sm"
+          onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <aside className={`
+      <aside
+        className={`
         fixed inset-y-0 left-0 z-30 w-64 bg-slate-900 text-slate-50 flex flex-col transition-transform duration-300 ease-in-out
         md:translate-x-0 md:static md:inset-auto
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
+      `}
+      >
         <div className="p-6 flex justify-between items-center">
           <div>
             <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
-                SocialSync
+              SocialSync
             </h1>
-            <p className="text-xs text-slate-400 mt-1">Multi-Tenant Broadcaster</p>
+            <p className="text-xs text-slate-400 mt-1">
+              Multi-Tenant Broadcaster
+            </p>
           </div>
-          <button 
-            onClick={() => setIsMobileMenuOpen(false)} 
+          <button
+            onClick={() => setIsMobileMenuOpen(false)}
             className="md:hidden text-slate-400 hover:text-white"
           >
             <X size={24} />
@@ -86,19 +102,21 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewCha
         <nav className="flex-1 px-4 space-y-2 overflow-y-auto custom-scrollbar">
           {navItems.map((item) => {
             const Icon = item.icon;
-            
+
             // Check if item has children (Submenu)
             if (item.children) {
               const isExpanded = expandedMenus[item.id];
-              const isActiveParent = item.children.some(child => child.id === currentView);
-              
+              const isActiveParent = item.children.some(
+                (child) => child.id === currentView
+              );
+
               return (
                 <div key={item.id} className="space-y-1">
                   <button
                     onClick={() => toggleMenu(item.id)}
                     className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
-                      isActiveParent 
-                        ? 'text-white' 
+                      isActiveParent
+                        ? 'text-white'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800'
                     }`}
                   >
@@ -106,23 +124,27 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewCha
                       <Icon size={20} />
                       <span className="font-medium">{item.label}</span>
                     </div>
-                    {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    {isExpanded ? (
+                      <ChevronDown size={16} />
+                    ) : (
+                      <ChevronRight size={16} />
+                    )}
                   </button>
-                  
+
                   {isExpanded && (
                     <div className="pl-11 space-y-1">
-                      {item.children.map(child => (
-                         <button
-                           key={child.id}
-                           onClick={() => handleNavClick(child.id)}
-                           className={`w-full text-left block px-3 py-2 rounded-lg text-sm transition-colors ${
-                             currentView === child.id 
-                               ? 'bg-blue-600 text-white shadow-sm' 
-                               : 'text-slate-500 hover:text-white hover:bg-slate-800'
-                           }`}
-                         >
-                           {child.label}
-                         </button>
+                      {item.children.map((child) => (
+                        <button
+                          key={child.id}
+                          onClick={() => handleNavClick(child.id)}
+                          className={`w-full text-left block px-3 py-2 rounded-lg text-sm transition-colors ${
+                            currentView === child.id
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'text-slate-500 hover:text-white hover:bg-slate-800'
+                          }`}
+                        >
+                          {child.label}
+                        </button>
                       ))}
                     </div>
                   )}
@@ -137,8 +159,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewCha
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
                 className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive 
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' 
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
                     : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                 }`}
               >
@@ -150,29 +172,54 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewCha
         </nav>
 
         <div className="p-4 border-t border-slate-800">
-          <button 
+          <button
             onClick={() => handleNavClick('settings')}
             className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-              currentView === 'settings' 
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' 
+              currentView === 'settings'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
                 : 'text-slate-400 hover:bg-slate-800 hover:text-white'
             }`}
           >
             <Settings size={20} />
             <span className="font-medium">Settings</span>
           </button>
-          
+
           {/* Legal Pages Links */}
           <div className="mt-4 pt-4 border-t border-slate-800 space-y-1">
-             <button onClick={() => handleNavClick('privacy')} className="w-full flex items-center gap-3 px-4 py-2 text-xs text-slate-500 hover:text-white transition-colors rounded-lg hover:bg-slate-800">
-                 <Shield size={14} /> Privacy Policy
-             </button>
-             <button onClick={() => handleNavClick('terms')} className="w-full flex items-center gap-3 px-4 py-2 text-xs text-slate-500 hover:text-white transition-colors rounded-lg hover:bg-slate-800">
-                 <FileText size={14} /> Terms of Service
-             </button>
-             <button onClick={() => handleNavClick('data_deletion')} className="w-full flex items-center gap-3 px-4 py-2 text-xs text-slate-500 hover:text-white transition-colors rounded-lg hover:bg-slate-800">
-                 <Trash2 size={14} /> Data Deletion
-             </button>
+            <button
+              onClick={() => handleNavClick('privacy')}
+              className="w-full flex items-center gap-3 px-4 py-2 text-xs text-slate-500 hover:text-white transition-colors rounded-lg hover:bg-slate-800"
+            >
+              <Shield size={14} /> Privacy Policy
+            </button>
+            <button
+              onClick={() => handleNavClick('terms')}
+              className="w-full flex items-center gap-3 px-4 py-2 text-xs text-slate-500 hover:text-white transition-colors rounded-lg hover:bg-slate-800"
+            >
+              <FileText size={14} /> Terms of Service
+            </button>
+            <button
+              onClick={() => handleNavClick('data_deletion')}
+              className="w-full flex items-center gap-3 px-4 py-2 text-xs text-slate-500 hover:text-white transition-colors rounded-lg hover:bg-slate-800"
+            >
+              <Trash2 size={14} /> Data Deletion
+            </button>
+          </div>
+
+          {/* User info and logout */}
+          <div className="mt-4 pt-4 border-t border-slate-800">
+            <div className="flex items-center gap-3 px-4 py-2 text-slate-400">
+              <User size={18} />
+              <span className="text-sm font-medium truncate flex-1">
+                {username}
+              </span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-4 py-2 text-xs text-slate-500 hover:text-rose-400 hover:bg-rose-900/20 transition-colors rounded-lg"
+            >
+              <LogOut size={14} /> Sign Out
+            </button>
           </div>
         </div>
       </aside>
@@ -181,18 +228,19 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewCha
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Mobile Header */}
         <header className="bg-white border-b border-slate-200 p-4 flex items-center justify-between md:hidden shrink-0 shadow-sm z-10">
-             <div className="flex items-center gap-2">
-                <span className="font-bold text-lg text-slate-800">SocialSync</span>
-             </div>
-             <button onClick={() => setIsMobileMenuOpen(true)} className="text-slate-600 hover:text-slate-900 p-1">
-                <Menu size={24}/>
-             </button>
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-lg text-slate-800">SocialSync</span>
+          </div>
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="text-slate-600 hover:text-slate-900 p-1"
+          >
+            <Menu size={24} />
+          </button>
         </header>
 
         <main className="flex-1 overflow-y-auto bg-slate-50 p-4 md:p-8">
-            <div className="max-w-7xl mx-auto">
-                {children}
-            </div>
+          <div className="max-w-7xl mx-auto">{children}</div>
         </main>
       </div>
     </div>
