@@ -340,8 +340,10 @@ export default {
 
     if (origin && allowedOrigins.includes(origin)) {
       corsHeaders['Access-Control-Allow-Origin'] = origin;
+    } else {
+      // Fallback for tools/debugging if needed, or stick to strict mode
+      // corsHeaders['Access-Control-Allow-Origin'] = '*';
     }
-
 
     if (method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders });
@@ -380,7 +382,15 @@ export default {
         }&redirect_uri=${env.META_REDIRECT_URI}&state=${encodeURIComponent(
           state
         )}&scope=pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish&response_type=code`;
-        return Response.redirect(metaUrl, 302);
+
+        // FIXED: Manually construct redirect to include CORS headers
+        return new Response(null, {
+          status: 302,
+          headers: {
+            ...corsHeaders,
+            Location: metaUrl,
+          },
+        });
       }
 
       // 2. OAUTH: Callback (Handle GET redirect from Facebook)
@@ -407,10 +417,14 @@ export default {
         const frontendUrl = env.FRONTEND_URL || 'http://localhost:3000';
 
         if (error || !code) {
-          return Response.redirect(
-            `${frontendUrl}/${redirectBase}?error=auth_failed`,
-            302
-          );
+          // FIXED: Manual redirect for CORS
+          return new Response(null, {
+            status: 302,
+            headers: {
+              ...corsHeaders,
+              Location: `${frontendUrl}/${redirectBase}?error=auth_failed`,
+            },
+          });
         }
 
         // Exchange code for token
@@ -420,10 +434,14 @@ export default {
         const tokenData: any = await tokenResp.json();
 
         if (!tokenData.access_token) {
-          return Response.redirect(
-            `${frontendUrl}/${redirectBase}?error=token_failed`,
-            302
-          );
+          // FIXED: Manual redirect for CORS
+          return new Response(null, {
+            status: 302,
+            headers: {
+              ...corsHeaders,
+              Location: `${frontendUrl}/${redirectBase}?error=token_failed`,
+            },
+          });
         }
 
         // Get Long Lived Token
@@ -486,10 +504,14 @@ export default {
         if (batch.length > 0) await env.DB.batch(batch);
 
         // Redirect back to Frontend with success flag
-        return Response.redirect(
-          `${frontendUrl}/${redirectBase}?success=true&count=${connectedCount}`,
-          302
-        );
+        // FIXED: Manual redirect for CORS
+        return new Response(null, {
+          status: 302,
+          headers: {
+            ...corsHeaders,
+            Location: `${frontendUrl}/${redirectBase}?success=true&count=${connectedCount}`,
+          },
+        });
       }
 
       // 3. GET ACCOUNTS
@@ -548,7 +570,12 @@ export default {
       // 6. GET LOGS
       if (path === '/api/logs' && method === 'GET') {
         const postId = url.searchParams.get('postId');
-        if (!postId) return new Response('Missing postId', { status: 400 });
+        // FIXED: Add CORS headers to error response
+        if (!postId)
+          return new Response('Missing postId', {
+            status: 400,
+            headers: corsHeaders,
+          });
 
         // Join with accounts to get names
         const { results } = await env.DB.prepare(
@@ -575,7 +602,11 @@ export default {
           const file = formData.get('file');
 
           if (!file || !(file instanceof File)) {
-            return new Response('No valid file uploaded', { status: 400 });
+            // FIXED: Add CORS headers to error response
+            return new Response('No valid file uploaded', {
+              status: 400,
+              headers: corsHeaders,
+            });
           }
 
           const key = `uploads/${crypto.randomUUID()}-${file.name.replace(
@@ -607,11 +638,21 @@ export default {
         const key = path.replace('/images/', '');
         const object = await env.BUCKET.get(key);
 
-        if (!object) return new Response('Not Found', { status: 404 });
+        // FIXED: Add CORS headers to error response
+        if (!object)
+          return new Response('Not Found', {
+            status: 404,
+            headers: corsHeaders,
+          });
 
         const headers = new Headers();
         object.writeHttpMetadata(headers);
         headers.set('etag', object.httpEtag);
+        // Add CORS to image serving as well just in case of canvas usage
+        headers.set(
+          'Access-Control-Allow-Origin',
+          corsHeaders['Access-Control-Allow-Origin'] || '*'
+        );
 
         return new Response(object.body, { headers });
       }
@@ -651,7 +692,12 @@ export default {
       // Verify User (Client Side)
       if (path === '/api/verify-user' && method === 'POST') {
         const { username } = (await request.json()) as any;
-        if (!username) return new Response('Missing username', { status: 400 });
+        // FIXED: Add CORS headers to error response
+        if (!username)
+          return new Response('Missing username', {
+            status: 400,
+            headers: corsHeaders,
+          });
 
         // Case insensitive check
         const user = await env.DB.prepare(
@@ -685,7 +731,12 @@ export default {
       // Add Single Allowed User (Admin)
       if (path === '/api/allowed-users' && method === 'POST') {
         const { username } = (await request.json()) as any;
-        if (!username) return new Response('Missing username', { status: 400 });
+        // FIXED: Add CORS headers to error response
+        if (!username)
+          return new Response('Missing username', {
+            status: 400,
+            headers: corsHeaders,
+          });
 
         try {
           await env.DB.prepare(
@@ -712,7 +763,12 @@ export default {
       if (path === '/api/allowed-users' && method === 'DELETE') {
         const urlParams = new URL(request.url).searchParams;
         const id = urlParams.get('id');
-        if (!id) return new Response('Missing id', { status: 400 });
+        // FIXED: Add CORS headers to error response
+        if (!id)
+          return new Response('Missing id', {
+            status: 400,
+            headers: corsHeaders,
+          });
 
         await env.DB.prepare('DELETE FROM allowed_users WHERE id = ?')
           .bind(id)
@@ -725,8 +781,12 @@ export default {
       // Bulk Add Allowed Users (Admin - CSV)
       if (path === '/api/allowed-users/bulk' && method === 'POST') {
         const { usernames } = (await request.json()) as any;
+        // FIXED: Add CORS headers to error response
         if (!Array.isArray(usernames))
-          return new Response('Invalid data', { status: 400 });
+          return new Response('Invalid data', {
+            status: 400,
+            headers: corsHeaders,
+          });
 
         const stmt = env.DB.prepare(
           'INSERT OR IGNORE INTO allowed_users (id, username, created_at) VALUES (?, ?, ?)'
@@ -968,6 +1028,7 @@ export default {
         const urlParams = new URL(request.url).searchParams;
         const id = urlParams.get('id');
 
+        // FIXED: Add CORS headers to error response
         if (!id) {
           return new Response('Missing id', {
             status: 400,
@@ -1012,6 +1073,7 @@ export default {
       if (path === '/api/admin/users/toggle' && method === 'PUT') {
         const { id } = (await request.json()) as any;
 
+        // FIXED: Add CORS headers to error response
         if (!id) {
           return new Response('Missing id', {
             status: 400,
