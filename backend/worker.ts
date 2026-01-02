@@ -324,12 +324,24 @@ export default {
     const path = url.pathname;
     const method = request.method;
 
-    // CORS Headers
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE',
+    // Dynamic CORS Headers
+    const origin = request.headers.get('Origin');
+    const allowedOrigins = [
+      env.FRONTEND_URL, // From wrangler secrets
+      'http://localhost:3000',
+      'http://localhost:5173', // Vite default
+      'https://social-media-management.pages.dev', // Explicitly allow pages dev
+    ];
+
+    const corsHeaders: Record<string, string> = {
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE, PUT',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
+
+    if (origin && allowedOrigins.includes(origin)) {
+      corsHeaders['Access-Control-Allow-Origin'] = origin;
+    }
+
 
     if (method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders });
