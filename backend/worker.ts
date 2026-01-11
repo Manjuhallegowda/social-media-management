@@ -21,9 +21,8 @@ interface Env {
 // -----------------------------------------------------------------------------
 // HELPER: Encryption / Decryption
 // -----------------------------------------------------------------------------
-async function getCryptoKey(secret: string): Promise<CryptoKey> {
+async function getCryptoKey(secret: string, salt: Uint8Array): Promise<CryptoKey> {
   const enc = new TextEncoder();
-  // Derive a key from the secret string using PBKDF2
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
     enc.encode(secret),
@@ -35,7 +34,7 @@ async function getCryptoKey(secret: string): Promise<CryptoKey> {
   return crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: enc.encode('social_sync_salt_v1'), // In prod, use a random salt stored with data, but fixed here for simplicity
+      salt: salt as any,
       iterations: 100000,
       hash: 'SHA-256',
     },
@@ -49,7 +48,8 @@ async function getCryptoKey(secret: string): Promise<CryptoKey> {
 async function encryptToken(text: string, secret: string): Promise<string> {
   if (!text) return '';
   try {
-    const key = await getCryptoKey(secret);
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const key = await getCryptoKey(secret, salt);
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const encoded = new TextEncoder().encode(text);
 
@@ -65,8 +65,8 @@ async function encryptToken(text: string, secret: string): Promise<string> {
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('');
 
-    // Format: iv:ciphertext
-    return `${toHex(iv.buffer)}:${toHex(encrypted)}`;
+    // Format: iv:salt:ciphertext
+    return `${toHex(iv.buffer)}:${toHex(salt.buffer)}:${toHex(encrypted)}`;
   } catch (e) {
     console.error('Encryption failed', e);
     throw e;
@@ -77,17 +77,47 @@ async function decryptToken(
   cipherText: string,
   secret: string
 ): Promise<string> {
-  // If not in iv:ciphertext format, return as is (backward compatibility or error)
+  // Check format. Old format was iv:ciphertext (2 parts). New is iv:salt:ciphertext (3 parts).
   if (!cipherText || !cipherText.includes(':')) return cipherText;
 
-  try {
-    const [ivHex, dataHex] = cipherText.split(':');
-    const key = await getCryptoKey(secret);
+  const parts = cipherText.split(':');
+  
+  // Backward compatibility: If 2 parts, use the old hardcoded salt logic
+  if (parts.length === 2) {
+     try {
+       const [ivHex, dataHex] = parts;
+       // Old hardcoded salt
+       const oldSalt = new TextEncoder().encode('social_sync_salt_v1');
+       const key = await getCryptoKey(secret, oldSalt);
+       
+       const fromHex = (hex: string) =>
+        new Uint8Array(
+          (hex.match(/.{1,2}/g) || []).map((byte) => parseInt(byte, 16))
+        );
 
+       const decrypted = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: fromHex(ivHex) },
+        key,
+        fromHex(dataHex)
+      );
+      return new TextDecoder().decode(decrypted);
+     } catch(e) {
+       console.error('Legacy decryption failed', e);
+       throw new Error('Failed to decrypt legacy token');
+     }
+  }
+
+  // New logic for 3 parts
+  try {
+    const [ivHex, saltHex, dataHex] = parts;
+    
     const fromHex = (hex: string) =>
       new Uint8Array(
         (hex.match(/.{1,2}/g) || []).map((byte) => parseInt(byte, 16))
       );
+      
+    const salt = fromHex(saltHex);
+    const key = await getCryptoKey(secret, salt);
 
     const decrypted = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: fromHex(ivHex) },
@@ -292,24 +322,6 @@ async function ensureAdminUser(env: Env, secretKey: string) {
         last_login INTEGER
       )`
     ).run();
-
-    // Check if admin user exists
-    const existing = await env.DB.prepare(
-      'SELECT id FROM admin_users WHERE username = ?'
-    )
-      .bind('admin')
-      .first();
-
-    if (!existing) {
-      // Create default admin user: admin / password
-      const passwordHash = await hashPassword('password', secretKey);
-      await env.DB.prepare(
-        'INSERT INTO admin_users (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)'
-      )
-        .bind(crypto.randomUUID(), 'admin', passwordHash, Date.now())
-        .run();
-      console.log('Created default admin user: admin / password');
-    }
   } catch (e) {
     console.error('Failed to ensure admin user:', e);
   }
@@ -1394,6 +1406,17 @@ export default {
     )
       .bind(accounts.length, 'in_progress', postId)
       .run();
+
+    // Handle 0 accounts edge case (immediately complete)
+    if (accounts.length === 0) {
+      console.log(`[StartPost] No active accounts for post ${postId}. Completing immediately.`);
+      await env.DB.prepare(
+        "UPDATE posts SET status = 'completed', completed_at = ? WHERE id = ?"
+      )
+        .bind(Date.now(), postId)
+        .run();
+      return;
+    }
 
     // 3. Split into chunks of 100
     // Requirement: Divide into 100 accounts for 15 min.

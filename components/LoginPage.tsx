@@ -134,11 +134,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               )}
             </button>
           </form>
-
-          <p className="text-center text-xs text-slate-400 mt-6">
-            Default credentials for first run:{' '}
-            <span className="font-mono text-slate-500">admin / password</span>
-          </p>
         </div>
 
         {/* Footer */}
