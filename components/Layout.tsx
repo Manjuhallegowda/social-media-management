@@ -89,7 +89,7 @@ export const Layout: React.FC<LayoutProps> = ({
             <img 
               src="/assets/iyclogo.jpg" 
               alt="Logo" 
-              className="w-10 h-10 rounded-full object-cover border-2 border-slate-700"
+              className="w-10 h-10 rounded-lg object-cover border-2 border-slate-700"
             />
             <div>
               <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
