@@ -85,13 +85,20 @@ export const Layout: React.FC<LayoutProps> = ({
       `}
       >
         <div className="p-6 flex justify-between items-center">
-          <div>
-            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
-              SocialSync
-            </h1>
-            <p className="text-xs text-slate-400 mt-1">
-              Multi-Tenant Broadcaster
-            </p>
+          <div className="flex items-center gap-3">
+            <img 
+              src="/assets/iyclogo.jpg" 
+              alt="Logo" 
+              className="w-10 h-10 rounded-full object-cover border-2 border-slate-700"
+            />
+            <div>
+              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
+                SocialSync
+              </h1>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Multi-Tenant Broadcaster
+              </p>
+            </div>
           </div>
           <button
             onClick={() => setIsMobileMenuOpen(false)}
