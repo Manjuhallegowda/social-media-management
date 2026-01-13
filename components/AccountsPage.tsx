@@ -73,8 +73,10 @@ export const AccountsPage: React.FC = () => {
     const left = window.screen.width / 2 - width / 2;
     const top = window.screen.height / 2 - height / 2;
     
+    const returnTo = encodeURIComponent(window.location.origin);
+
     window.open(
-      `${API_URL}/auth/login?source=admin`, 
+      `${API_URL}/auth/login?source=admin&return_to=${returnTo}`, 
       'SocialSyncLogin', 
       `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes`
     );

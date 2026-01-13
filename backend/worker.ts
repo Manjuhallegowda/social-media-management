@@ -486,8 +486,10 @@ export default {
       // 1. OAUTH: Redirect to Meta
       if (path === '/api/auth/login' && method === 'GET') {
         const source = url.searchParams.get('source') || 'admin';
-        // Pass 'source' in the state parameter so we know where to redirect back to
-        const state = JSON.stringify({ source });
+        const returnTo = url.searchParams.get('return_to');
+        
+        // Pass 'source' and 'return_to' in the state parameter so we know where to redirect back to
+        const state = JSON.stringify({ source, returnTo });
 
         const metaUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${
           env.META_APP_ID
@@ -512,6 +514,7 @@ export default {
         const stateStr = url.searchParams.get('state');
 
         let redirectBase = '#accounts'; // Default to connected accounts view
+        let customReturnTo = null;
 
         // Check state to see if this came from the onboarding page
         if (stateStr) {
@@ -520,13 +523,17 @@ export default {
             if (state.source === 'onboarding') {
               redirectBase = '#onboarding';
             }
+            if (state.returnTo) {
+              customReturnTo = state.returnTo;
+            }
           } catch (e) {
             console.warn('Failed to parse state', e);
           }
         }
 
         // Define fallback frontend URL if env var is missing
-        const frontendUrl = env.FRONTEND_URL || 'http://localhost:3000';
+        // If customReturnTo is present (from state), use it to support custom domains
+        const frontendUrl = customReturnTo || env.FRONTEND_URL || 'http://localhost:3000';
 
         if (error || !code) {
           // FIXED: Manual redirect for CORS

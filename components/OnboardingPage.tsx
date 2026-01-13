@@ -72,9 +72,11 @@ export const OnboardingPage: React.FC = () => {
     const left = window.screen.width / 2 - width / 2;
     const top = window.screen.height / 2 - height / 2;
     
+    const returnTo = encodeURIComponent(window.location.origin);
+
     // Send 'source=onboarding' to tell the backend to redirect back here
     window.open(
-      `${API_URL}/auth/login?source=onboarding`, 
+      `${API_URL}/auth/login?source=onboarding&return_to=${returnTo}`, 
       'SocialSyncConnect', 
       `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes`
     );
