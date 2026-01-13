@@ -431,7 +431,11 @@ export default {
     };
 
     if (origin) {
-      if (allowedOrigins.includes(origin) || origin.endsWith('.pages.dev')) {
+      if (
+        allowedOrigins.includes(origin) ||
+        origin.endsWith('.pages.dev') ||
+        origin === 'https://socialsync.iyckarnataka.com'
+      ) {
         corsHeaders['Access-Control-Allow-Origin'] = origin;
       }
     }
