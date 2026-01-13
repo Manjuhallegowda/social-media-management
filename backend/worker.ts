@@ -430,8 +430,10 @@ export default {
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
 
-    if (origin && allowedOrigins.includes(origin)) {
-      corsHeaders['Access-Control-Allow-Origin'] = origin;
+    if (origin) {
+      if (allowedOrigins.includes(origin) || origin.endsWith('.pages.dev')) {
+        corsHeaders['Access-Control-Allow-Origin'] = origin;
+      }
     }
 
     if (method === 'OPTIONS') {
