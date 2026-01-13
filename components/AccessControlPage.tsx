@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ShieldCheck, UserPlus, Upload, Trash2, X, CheckCircle, AlertTriangle } from 'lucide-react';
-import { API_URL } from '../services/config';
+import { apiFetch } from '../services/config';
 
 export const AccessControlPage: React.FC = () => {
   const [allowedUsers, setAllowedUsers] = useState<Array<{id: string, username: string, created_at: number}>>([]);
@@ -18,7 +18,7 @@ export const AccessControlPage: React.FC = () => {
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-        const res = await fetch(`${API_URL}/allowed-users`);
+        const res = await apiFetch(`/allowed-users`);
         if (res.ok) {
             const data = await res.json();
             setAllowedUsers(data);
@@ -33,7 +33,7 @@ export const AccessControlPage: React.FC = () => {
   const handleAddUser = async () => {
       if (!newUser.trim()) return;
       try {
-          const res = await fetch(`${API_URL}/allowed-users`, {
+          const res = await apiFetch(`/allowed-users`, {
               method: 'POST',
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({ username: newUser })
@@ -54,7 +54,7 @@ export const AccessControlPage: React.FC = () => {
       if (!confirm(`Remove ${username} from allowlist? They will no longer be able to onboard.`)) return;
 
       try {
-          const res = await fetch(`${API_URL}/allowed-users?id=${id}`, {
+          const res = await apiFetch(`/allowed-users?id=${id}`, {
               method: 'DELETE'
           });
           if (res.ok) {
@@ -85,7 +85,7 @@ export const AccessControlPage: React.FC = () => {
 
           if (confirm(`Found ${names.length} usernames. Upload?`)) {
               try {
-                  const res = await fetch(`${API_URL}/allowed-users/bulk`, {
+                  const res = await apiFetch(`/allowed-users/bulk`, {
                       method: 'POST',
                       headers: {'Content-Type': 'application/json'},
                       body: JSON.stringify({ usernames: names })

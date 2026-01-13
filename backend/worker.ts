@@ -217,6 +217,86 @@ function processCaption(base: string, accountName: string): string {
 }
 
 // -----------------------------------------------------------------------------
+// HELPER: JWT Implementation (HS256)
+// -----------------------------------------------------------------------------
+
+async function signJwt(payload: any, secret: string): Promise<string> {
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const encode = (data: any) => 
+    btoa(JSON.stringify(data))
+      .replace(/=/g, '')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_');
+
+  const encodedHeader = encode(header);
+  const encodedPayload = encode(payload);
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(`${encodedHeader}.${encodedPayload}`)
+  );
+
+  const encodedSignature = btoa(
+    String.fromCharCode(...new Uint8Array(signature))
+  )
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+
+  return `${encodedHeader}.${encodedPayload}.${encodedSignature}`;
+}
+
+async function verifyJwt(token: string, secret: string): Promise<any> {
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('Invalid token format');
+
+  const [encodedHeader, encodedPayload, encodedSignature] = parts;
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['verify']
+  );
+
+  const signatureRaw = atob(
+    encodedSignature.replace(/-/g, '+').replace(/_/g, '/')
+  );
+  const signature = new Uint8Array(
+    signatureRaw.split('').map((c) => c.charCodeAt(0))
+  );
+
+  const isValid = await crypto.subtle.verify(
+    'HMAC',
+    key,
+    signature,
+    new TextEncoder().encode(`${encodedHeader}.${encodedPayload}`)
+  );
+
+  if (!isValid) throw new Error('Invalid signature');
+
+  const payload = JSON.parse(
+    atob(encodedPayload.replace(/-/g, '+').replace(/_/g, '/'))
+  );
+
+  if (payload.exp && Date.now() / 1000 > payload.exp) {
+    throw new Error('Token expired');
+  }
+
+  return payload;
+}
+
+// -----------------------------------------------------------------------------
 // HELPER: Password Hashing (bcrypt-like using PBKDF2)
 // -----------------------------------------------------------------------------
 
@@ -352,9 +432,6 @@ export default {
 
     if (origin && allowedOrigins.includes(origin)) {
       corsHeaders['Access-Control-Allow-Origin'] = origin;
-    } else {
-      // Fallback for tools/debugging if needed, or stick to strict mode
-      // corsHeaders['Access-Control-Allow-Origin'] = '*';
     }
 
     if (method === 'OPTIONS') {
@@ -362,7 +439,9 @@ export default {
     }
 
     // Use ENCRYPTION_KEY if set, otherwise fallback to API_SECRET for dev convenience
-    const secretKey = env.ENCRYPTION_KEY || env.API_SECRET;
+    const secretKey = env.ENCRYPTION_KEY || env.API_SECRET || 'dev-fallback-secret';
+    // Use API_SECRET for JWT signing (ensures it's distinct if keys are rotated)
+    const jwtSecret = env.API_SECRET || env.ENCRYPTION_KEY || 'dev-fallback-secret';
 
     // Ensure admin_users table and default admin exist
     await ensureAdminUser(env, secretKey);
@@ -381,6 +460,21 @@ export default {
     } catch (e) {
       // Ignore if already exists or concurrent creation issues
     }
+
+    // AUTH HELPER
+    const authenticate = async () => {
+      const authHeader = request.headers.get('Authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        throw new Error('Unauthorized');
+      }
+      const token = authHeader.split(' ')[1];
+      try {
+        const payload = await verifyJwt(token, jwtSecret);
+        return payload;
+      } catch (e) {
+        throw new Error('Unauthorized');
+      }
+    };
 
     try {
       // 1. OAUTH: Redirect to Meta
@@ -526,8 +620,9 @@ export default {
         });
       }
 
-      // 3. GET ACCOUNTS
+      // 3. GET ACCOUNTS (Protected)
       if (path === '/api/accounts' && method === 'GET') {
+        await authenticate();
         const { results } = await env.DB.prepare(
           'SELECT id, owner_name, fb_page_name, ig_username, status, last_updated FROM accounts ORDER BY created_at DESC'
         ).all();
@@ -536,8 +631,9 @@ export default {
         });
       }
 
-      // 4. GET DASHBOARD STATS (Real Data)
+      // 4. GET DASHBOARD STATS (Protected)
       if (path === '/api/dashboard-stats' && method === 'GET') {
+        await authenticate();
         // Aggregate counts
         const totalAccounts = await env.DB.prepare(
           'SELECT count(*) as count FROM accounts'
@@ -569,8 +665,9 @@ export default {
         );
       }
 
-      // 5. GET POSTS (History)
+      // 5. GET POSTS (Protected)
       if (path === '/api/posts' && method === 'GET') {
+        await authenticate();
         const { results } = await env.DB.prepare(
           'SELECT * FROM posts ORDER BY created_at DESC'
         ).all();
@@ -579,8 +676,9 @@ export default {
         });
       }
 
-      // 6. GET LOGS
+      // 6. GET LOGS (Protected)
       if (path === '/api/logs' && method === 'GET') {
+        await authenticate();
         const postId = url.searchParams.get('postId');
         // FIXED: Add CORS headers to error response
         if (!postId)
@@ -607,8 +705,9 @@ export default {
         });
       }
 
-      // 7. UPLOAD IMAGE (R2)
+      // 7. UPLOAD IMAGE (Protected)
       if (path === '/api/upload' && method === 'POST') {
+        await authenticate();
         try {
           const formData = await request.formData();
           const file = formData.get('file');
@@ -647,6 +746,7 @@ export default {
 
       // 8. SERVE IMAGES (R2 Proxy)
       if (path.startsWith('/images/') && method === 'GET') {
+        // Publicly accessible for now (so FB/IG can download them), but we could sign URLs in future
         const key = path.replace('/images/', '');
         const object = await env.BUCKET.get(key);
 
@@ -669,8 +769,9 @@ export default {
         return new Response(object.body, { headers });
       }
 
-      // 9. CREATE POST
+      // 9. CREATE POST (Protected)
       if (path === '/api/posts' && method === 'POST') {
+        await authenticate();
         const body = (await request.json()) as any;
         const postId = crypto.randomUUID();
 
@@ -701,7 +802,7 @@ export default {
       // ALLOWLIST / ACCESS CONTROL ENDPOINTS
       // -----------------------------------------------------------------------
 
-      // Verify User (Client Side)
+      // Verify User (Client Side) - PUBLIC (Used by onboarding page)
       if (path === '/api/verify-user' && method === 'POST') {
         const { username } = (await request.json()) as any;
         // FIXED: Add CORS headers to error response
@@ -730,8 +831,9 @@ export default {
         }
       }
 
-      // Get Allowed Users (Admin)
+      // Get Allowed Users (Admin) - Protected
       if (path === '/api/allowed-users' && method === 'GET') {
+        await authenticate();
         const { results } = await env.DB.prepare(
           'SELECT * FROM allowed_users ORDER BY created_at DESC'
         ).all();
@@ -740,8 +842,9 @@ export default {
         });
       }
 
-      // Add Single Allowed User (Admin)
+      // Add Single Allowed User (Admin) - Protected
       if (path === '/api/allowed-users' && method === 'POST') {
+        await authenticate();
         const { username } = (await request.json()) as any;
         // FIXED: Add CORS headers to error response
         if (!username)
@@ -771,8 +874,9 @@ export default {
         }
       }
 
-      // Delete Allowed User (Admin)
+      // Delete Allowed User (Admin) - Protected
       if (path === '/api/allowed-users' && method === 'DELETE') {
+        await authenticate();
         const urlParams = new URL(request.url).searchParams;
         const id = urlParams.get('id');
         // FIXED: Add CORS headers to error response
@@ -790,8 +894,9 @@ export default {
         });
       }
 
-      // Bulk Add Allowed Users (Admin - CSV)
+      // Bulk Add Allowed Users (Admin - CSV) - Protected
       if (path === '/api/allowed-users/bulk' && method === 'POST') {
+        await authenticate();
         const { usernames } = (await request.json()) as any;
         // FIXED: Add CORS headers to error response
         if (!Array.isArray(usernames))
@@ -819,7 +924,7 @@ export default {
       // ADMIN AUTHENTICATION ENDPOINTS
       // -----------------------------------------------------------------------
 
-      // Admin Login
+      // Admin Login - PUBLIC (Generates Token)
       if (path === '/api/admin/login' && method === 'POST') {
         const { username, password } = (await request.json()) as any;
 
@@ -858,10 +963,21 @@ export default {
                 .bind(Date.now(), user.id)
                 .run();
 
+              // Generate JWT
+              const token = await signJwt(
+                {
+                  sub: user.id,
+                  username: user.username,
+                  exp: Math.floor(Date.now() / 1000) + 24 * 60 * 60, // 24 hours
+                },
+                jwtSecret
+              );
+
               return new Response(
                 JSON.stringify({
                   success: true,
                   username: user.username,
+                  token, // Return token
                   message: 'Login successful',
                 }),
                 {
@@ -884,7 +1000,7 @@ export default {
         } catch (e: any) {
           console.error('Login error:', e);
           return new Response(
-            JSON.stringify({ success: false, error: 'Authentication failed' }),
+            JSON.stringify({ success: false, error: 'Authentication failed: ' + e.message }),
             {
               status: 500,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -893,8 +1009,9 @@ export default {
         }
       }
 
-      // Get All Admin Users
+      // Get All Admin Users - Protected
       if (path === '/api/admin/users' && method === 'GET') {
+        await authenticate();
         try {
           const { results } = await env.DB.prepare(
             'SELECT id, username, is_active, created_at, last_login FROM admin_users ORDER BY created_at DESC'
@@ -911,8 +1028,9 @@ export default {
         }
       }
 
-      // Create New Admin User
+      // Create New Admin User - Protected
       if (path === '/api/admin/users' && method === 'POST') {
+        await authenticate();
         const { username, password } = (await request.json()) as any;
 
         if (!username || !password) {
@@ -982,8 +1100,9 @@ export default {
         }
       }
 
-      // Update Admin Password
+      // Update Admin Password - Protected
       if (path === '/api/admin/users/password' && method === 'PUT') {
+        await authenticate();
         const { username, newPassword } = (await request.json()) as any;
 
         if (!username || !newPassword || newPassword.length < 6) {
@@ -1035,8 +1154,9 @@ export default {
         }
       }
 
-      // Delete Admin User
+      // Delete Admin User - Protected
       if (path === '/api/admin/users' && method === 'DELETE') {
+        await authenticate();
         const urlParams = new URL(request.url).searchParams;
         const id = urlParams.get('id');
 
@@ -1081,8 +1201,9 @@ export default {
         }
       }
 
-      // Toggle Admin Active Status
+      // Toggle Admin Active Status - Protected
       if (path === '/api/admin/users/toggle' && method === 'PUT') {
+        await authenticate();
         const { id } = (await request.json()) as any;
 
         // FIXED: Add CORS headers to error response
@@ -1153,9 +1274,9 @@ export default {
         }
       }
 
-      // SYSTEM STATUS ENDPOINT (Real Checks)
-      // Accessible to authenticated admins
+      // SYSTEM STATUS ENDPOINT (Real Checks) - Protected
       if (path === '/api/system-status' && method === 'GET') {
+        await authenticate();
         const status: any = {
           database: { status: 'unknown', message: '' },
           storage: { status: 'unknown', message: '' },
@@ -1237,6 +1358,14 @@ export default {
 
       return new Response('Not Found', { status: 404, headers: corsHeaders });
     } catch (err: any) {
+      // Handle authentication errors specifically
+      if (err.message === 'Unauthorized' || err.message === 'Token expired') {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       console.error('Global Worker Error:', err);
       return new Response(
         JSON.stringify({ error: err.message || 'Internal Server Error' }),

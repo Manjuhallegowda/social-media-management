@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, User, Loader2, AlertCircle } from 'lucide-react';
-import { API_URL } from '../services/config';
+import { API_URL, setAuthToken } from '../services/config';
 
 interface LoginPageProps {
   onLogin: (username: string) => void;
@@ -42,6 +42,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       const data = await response.json();
 
       if (response.ok && data.success) {
+        setAuthToken(data.token);
         onLogin(data.username);
       } else {
         setError(data.error || 'Login failed');

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Upload, Send, Image as ImageIcon, X } from 'lucide-react';
-import { API_URL } from '../services/config';
+import { apiFetch } from '../services/config';
 
 export const CreatePostPage: React.FC = () => {
   const [caption, setCaption] = useState('');
@@ -30,7 +30,7 @@ export const CreatePostPage: React.FC = () => {
       const formData = new FormData();
       formData.append('file', imageFile);
 
-      const uploadRes = await fetch(`${API_URL}/upload`, {
+      const uploadRes = await apiFetch(`/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -40,7 +40,7 @@ export const CreatePostPage: React.FC = () => {
       const { url: imageUrl } = await uploadRes.json();
 
       // 2. Create Post
-      const postRes = await fetch(`${API_URL}/posts`, {
+      const postRes = await apiFetch(`/posts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ caption, imageUrl }),

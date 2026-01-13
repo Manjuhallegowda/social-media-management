@@ -11,6 +11,13 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
+
+# Wrangler
+.wrangler
+/backend/.wrangler
 /backend/.dev.vars
 
 # Editor directories and files

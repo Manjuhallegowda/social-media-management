@@ -13,7 +13,7 @@ import {
   Key,
   X,
 } from 'lucide-react';
-import { API_URL } from '../services/config';
+import { apiFetch } from '../services/config';
 
 interface SystemStatus {
   database: { status: string; message: string };
@@ -49,7 +49,7 @@ export const SettingsPage: React.FC = () => {
   const fetchStatus = () => {
     setLoading(true);
     setError(null);
-    fetch(`${API_URL}/system-status`)
+    apiFetch(`/system-status`)
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch status');
         return res.json();
@@ -60,7 +60,7 @@ export const SettingsPage: React.FC = () => {
   };
 
   const fetchAdminUsers = () => {
-    fetch(`${API_URL}/admin/users`)
+    apiFetch(`/admin/users`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -92,7 +92,7 @@ export const SettingsPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch(`${API_URL}/admin/users`, {
+      const res = await apiFetch(`/admin/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: newUsername, password: newPassword }),
@@ -120,7 +120,7 @@ export const SettingsPage: React.FC = () => {
     if (!confirm('Are you sure you want to delete this admin user?')) return;
 
     try {
-      const res = await fetch(`${API_URL}/admin/users?id=${id}`, {
+      const res = await apiFetch(`/admin/users?id=${id}`, {
         method: 'DELETE',
       });
 
@@ -139,7 +139,7 @@ export const SettingsPage: React.FC = () => {
 
   const handleToggleActive = async (id: string) => {
     try {
-      const res = await fetch(`${API_URL}/admin/users/toggle`, {
+      const res = await apiFetch(`/admin/users/toggle`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),

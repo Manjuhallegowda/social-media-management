@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { PostCampaign, PostStatus, LogEntry } from '../types';
 import { ChevronRight, FileText, CheckCircle2, AlertOctagon, Clock, X, Terminal, Image as ImageIcon } from 'lucide-react';
-import { API_URL } from '../services/config';
+import { apiFetch } from '../services/config';
 
 export const PostHistoryPage: React.FC = () => {
   const [posts, setPosts] = useState<PostCampaign[]>([]);
@@ -13,7 +13,7 @@ export const PostHistoryPage: React.FC = () => {
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
   useEffect(() => {
-    fetch(`${API_URL}/posts`)
+    apiFetch(`/posts`)
         .then(res => res.json())
         .then(data => setPosts(data))
         .catch(console.error);
@@ -26,7 +26,7 @@ export const PostHistoryPage: React.FC = () => {
       if (view === 'logs') {
           setIsLoadingLogs(true);
           try {
-              const res = await fetch(`${API_URL}/logs?postId=${post.id}`);
+              const res = await apiFetch(`/logs?postId=${post.id}`);
               const data = await res.json();
               setLogs(data);
           } catch (e) {
@@ -42,7 +42,7 @@ export const PostHistoryPage: React.FC = () => {
       if (view === 'logs' && selectedPost) {
            setIsLoadingLogs(true);
           try {
-              const res = await fetch(`${API_URL}/logs?postId=${selectedPost.id}`);
+              const res = await apiFetch(`/logs?postId=${selectedPost.id}`);
               const data = await res.json();
               setLogs(data);
           } catch (e) {

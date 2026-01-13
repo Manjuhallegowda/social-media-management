@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Facebook, Search, RefreshCw, AlertTriangle, CheckCircle, X, Trash2, ExternalLink, Link as LinkIcon } from 'lucide-react';
 import { SocialAccount, AccountStatus } from '../types';
-import { API_URL } from '../services/config';
+import { API_URL, apiFetch } from '../services/config';
 
 export const AccountsPage: React.FC = () => {
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
@@ -15,7 +15,7 @@ export const AccountsPage: React.FC = () => {
   const fetchAccounts = async () => {
       setIsLoading(true);
       try {
-          const res = await fetch(`${API_URL}/accounts`);
+          const res = await apiFetch(`/accounts`);
           if (res.ok) {
               const data = await res.json();
               setAccounts(data);

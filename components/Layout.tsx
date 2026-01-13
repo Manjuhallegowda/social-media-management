@@ -15,6 +15,7 @@ import {
   LogOut,
   User,
 } from 'lucide-react';
+import { removeAuthToken } from '../services/config';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -46,6 +47,7 @@ export const Layout: React.FC<LayoutProps> = ({
   };
 
   const handleLogout = () => {
+    removeAuthToken();
     onLogout();
   };
 
