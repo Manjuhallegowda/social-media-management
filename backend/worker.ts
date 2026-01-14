@@ -491,7 +491,7 @@ export default {
         // Pass 'source' and 'return_to' in the state parameter so we know where to redirect back to
         const state = JSON.stringify({ source, returnTo });
 
-        const metaUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${
+        const metaUrl = `https://www.facebook.com/v24.0/dialog/oauth?client_id=${
           env.META_APP_ID
         }&redirect_uri=${env.META_REDIRECT_URI}&state=${encodeURIComponent(
           state
@@ -548,7 +548,7 @@ export default {
 
         // Exchange code for token
         const tokenResp = await fetch(
-          `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${env.META_APP_ID}&redirect_uri=${env.META_REDIRECT_URI}&client_secret=${env.META_APP_SECRET}&code=${code}`
+          `https://graph.facebook.com/v24.0/oauth/access_token?client_id=${env.META_APP_ID}&redirect_uri=${env.META_REDIRECT_URI}&client_secret=${env.META_APP_SECRET}&code=${code}`
         );
         const tokenData: any = await tokenResp.json();
 
@@ -565,7 +565,7 @@ export default {
 
         // Get Long Lived Token
         const longTokenResp = await fetch(
-          `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${env.META_APP_ID}&client_secret=${env.META_APP_SECRET}&fb_exchange_token=${tokenData.access_token}`
+          `https://graph.facebook.com/v24.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${env.META_APP_ID}&client_secret=${env.META_APP_SECRET}&fb_exchange_token=${tokenData.access_token}`
         );
         const longTokenData: any = await longTokenResp.json();
         const finalToken = longTokenData.access_token || tokenData.access_token;
@@ -578,7 +578,7 @@ export default {
         // Fetch Accounts using the User Token
         // UPDATED: Fetches instagram_business_account{id,username} to store the handle
         const accountsResp = await fetch(
-          `https://graph.facebook.com/v19.0/me/accounts?fields=name,access_token,instagram_business_account{id,username}&access_token=${finalToken}`
+          `https://graph.facebook.com/v24.0/me/accounts?fields=name,access_token,instagram_business_account{id,username}&access_token=${finalToken}`
         );
         const accountsData: any = await accountsResp.json();
 
@@ -1489,7 +1489,7 @@ export default {
       );
 
       // Exchange current long-lived token for a new one (refresh)
-      const refreshUrl = `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${env.META_APP_ID}&client_secret=${env.META_APP_SECRET}&fb_exchange_token=${decryptedToken}`;
+      const refreshUrl = `https://graph.facebook.com/v24.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${env.META_APP_ID}&client_secret=${env.META_APP_SECRET}&fb_exchange_token=${decryptedToken}`;
 
       const response = await fetch(refreshUrl);
       const data: any = await response.json();
@@ -1731,7 +1731,7 @@ export default {
     }
 
     // 1. Create Media Container (Instagram)
-    const containerUrl = `https://graph.facebook.com/v19.0/${account.ig_user_id}/media`;
+    const containerUrl = `https://graph.facebook.com/v24.0/${account.ig_user_id}/media`;
     const containerResp = await fetch(containerUrl, {
       method: 'POST',
       body: new URLSearchParams({
@@ -1749,7 +1749,7 @@ export default {
     }
 
     // 2. Publish Media (Instagram)
-    const publishUrl = `https://graph.facebook.com/v19.0/${account.ig_user_id}/media_publish`;
+    const publishUrl = `https://graph.facebook.com/v24.0/${account.ig_user_id}/media_publish`;
     const publishResp = await fetch(publishUrl, {
       method: 'POST',
       body: new URLSearchParams({
@@ -1766,7 +1766,7 @@ export default {
     }
 
     // 3. Publish to Facebook Page
-    const fbUrl = `https://graph.facebook.com/v19.0/${account.fb_page_id}/photos`;
+    const fbUrl = `https://graph.facebook.com/v24.0/${account.fb_page_id}/photos`;
     const fbResp = await fetch(fbUrl, {
       method: 'POST',
       body: new URLSearchParams({
