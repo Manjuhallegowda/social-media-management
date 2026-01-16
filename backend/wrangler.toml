@@ -30,6 +30,9 @@ bucket_name = "socialsync-uploads"
 binding = "QUEUE"
 queue = "socialsync-jobs"
 
+[[queues.consumers]]
+queue = "socialsync-jobs"
+
 
 # ===========================
 # 🌎 GLOBAL VARIABLES
