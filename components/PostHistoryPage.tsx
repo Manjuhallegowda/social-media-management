@@ -12,16 +12,27 @@ export const PostHistoryPage: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
-  useEffect(() => {
-    apiFetch(`/posts`)
-        .then(res => res.json())
-        .then(data => {
-            console.log('Fetched campaign data:', data);
-            setPosts(data);
-        })
-        .catch(console.error);
-  }, []);
-
+      useEffect(() => {
+          apiFetch(`/posts`)
+              .then(response => {
+                  console.log('Received response from server:', response);
+                  return response.text(); // Get the raw text first
+              })
+              .then(text => {
+                  console.log('Raw response body text:', text);
+                  try {
+                      const data = JSON.parse(text); // Manually parse
+                      console.log('Parsed data:', data);
+                      setPosts(data);
+                  } catch (e) {
+                      console.error('Failed to parse JSON:', e);
+                      console.error('The raw text was:', text);
+                  }
+              })
+              .catch(error => {
+                  console.error('Error during fetch or processing:', error);
+              });
+      }, []);
   const handleOpen = async (post: PostCampaign, view: 'details' | 'logs') => {
       setSelectedPost(post);
       setModalView(view);
