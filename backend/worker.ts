@@ -742,8 +742,8 @@ export default {
             httpMetadata: { contentType: file.type },
           });
 
-          // Construct Public URL (Assuming Worker serves it at /images/)
-          const publicUrl = `${url.origin}/images/${key}`;
+          // Construct Public URL using the public R2 URL from env
+          const publicUrl = `${env.R2_PUBLIC_URL}/${key}`;
 
           return new Response(JSON.stringify({ url: publicUrl }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -757,30 +757,7 @@ export default {
         }
       }
 
-      // 8. SERVE IMAGES (R2 Proxy)
-      if (path.startsWith('/images/') && method === 'GET') {
-        // Publicly accessible for now (so FB/IG can download them), but we could sign URLs in future
-        const key = path.replace('/images/', '');
-        const object = await env.BUCKET.get(key);
 
-        // FIXED: Add CORS headers to error response
-        if (!object)
-          return new Response('Not Found', {
-            status: 404,
-            headers: corsHeaders,
-          });
-
-        const headers = new Headers();
-        object.writeHttpMetadata(headers);
-        headers.set('etag', object.httpEtag);
-        // Add CORS to image serving as well just in case of canvas usage
-        headers.set(
-          'Access-Control-Allow-Origin',
-          corsHeaders['Access-Control-Allow-Origin'] || '*'
-        );
-
-        return new Response(object.body, { headers });
-      }
 
       // 9. CREATE POST (Protected)
       if (path === '/api/posts' && method === 'POST') {

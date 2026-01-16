@@ -22,7 +22,7 @@ export interface SocialAccount {
 
 export interface PostCampaign {
   id: string;
-  image_url: string;
+  public_image_url: string;
   base_caption: string;
   status: PostStatus;
   total_accounts: number;

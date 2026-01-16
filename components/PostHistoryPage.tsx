@@ -71,7 +71,7 @@ export const PostHistoryPage: React.FC = () => {
                 
                 {/* Thumbnail */}
                 <div className="w-full md:w-32 h-48 md:h-32 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0">
-                  <img src={post.image_url} alt="Campaign" className="w-full h-full object-cover" />
+                  <img src={post.public_image_url} alt="Campaign" className="w-full h-full object-cover" />
                 </div>
 
                 {/* Info */}
@@ -174,7 +174,7 @@ export const PostHistoryPage: React.FC = () => {
                      <div className="grid md:grid-cols-2 gap-6 md:gap-8">
                         <div>
                              <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2"><ImageIcon size={18}/> Creative Asset</h4>
-                             <img src={selectedPost.image_url} className="rounded-lg shadow-sm w-full border border-slate-200" alt="Creative"/>
+                             <img src={selectedPost.public_image_url} className="rounded-lg shadow-sm w-full border border-slate-200" alt="Creative"/>
                         </div>
                         <div className="space-y-6">
                             <div>
