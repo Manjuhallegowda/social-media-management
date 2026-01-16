@@ -15,7 +15,10 @@ export const PostHistoryPage: React.FC = () => {
   useEffect(() => {
     apiFetch(`/posts`)
         .then(res => res.json())
-        .then(data => setPosts(data))
+        .then(data => {
+            console.log('Fetched campaign data:', data);
+            setPosts(data);
+        })
         .catch(console.error);
   }, []);
 
