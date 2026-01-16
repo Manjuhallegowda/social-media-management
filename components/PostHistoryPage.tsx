@@ -6,72 +6,167 @@ import { ChevronRight, FileText, CheckCircle2, AlertOctagon, Clock, X, Terminal,
 import { apiFetch } from '../services/config';
 
 export const PostHistoryPage: React.FC = () => {
+
   const [posts, setPosts] = useState<PostCampaign[]>([]);
+
   const [selectedPost, setSelectedPost] = useState<PostCampaign | null>(null);
+
   const [modalView, setModalView] = useState<'details' | 'logs'>('details');
+
   const [logs, setLogs] = useState<LogEntry[]>([]);
+
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
-      useEffect(() => {
-          apiFetch(`/posts`)
-              .then(response => {
-                  console.log('Received response from server:', response);
-                  return response.text(); // Get the raw text first
-              })
-              .then(text => {
-                  console.log('Raw response body text:', text);
-                  try {
-                      const data = JSON.parse(text); // Manually parse
-                      console.log('Parsed data:', data);
-                      setPosts(data);
-                  } catch (e) {
-                      console.error('Failed to parse JSON:', e);
-                      console.error('The raw text was:', text);
-                  }
-              })
-              .catch(error => {
-                  console.error('Error during fetch or processing:', error);
-              });
-      }, []);
+  const [rawText, setRawText] = useState<string | null>(null); // State for debug output
+
+
+
+  useEffect(() => {
+
+    apiFetch(`/posts`)
+
+        .then(response => {
+
+            console.log('Received response from server:', response);
+
+            return response.text(); // Get the raw text first
+
+        })
+
+        .then(text => {
+
+            console.log('Raw response body text:', text);
+
+            setRawText(text); // Save raw text for UI debugging
+
+            try {
+
+                const data = JSON.parse(text); // Manually parse
+
+                console.log('Parsed data:', data);
+
+                setPosts(data);
+
+            } catch (e) {
+
+                console.error('Failed to parse JSON:', e);
+
+                console.error('The raw text was:', text);
+
+            }
+
+        })
+
+        .catch(error => {
+
+            console.error('Error during fetch or processing:', error);
+
+            setRawText(`Fetch Error: ${error.message}`);
+
+        });
+
+  }, []);
+
+
+
   const handleOpen = async (post: PostCampaign, view: 'details' | 'logs') => {
+
       setSelectedPost(post);
+
       setModalView(view);
+
       
+
       if (view === 'logs') {
+
           setIsLoadingLogs(true);
+
           try {
+
               const res = await apiFetch(`/logs?postId=${post.id}`);
+
               const data = await res.json();
+
               setLogs(data);
+
           } catch (e) {
+
               console.error("Failed to fetch logs", e);
+
           } finally {
+
               setIsLoadingLogs(false);
+
           }
+
       }
+
   };
+
+
 
   const handleTabChange = async (view: 'details' | 'logs') => {
+
       setModalView(view);
+
       if (view === 'logs' && selectedPost) {
+
            setIsLoadingLogs(true);
+
           try {
+
               const res = await apiFetch(`/logs?postId=${selectedPost.id}`);
+
               const data = await res.json();
+
               setLogs(data);
+
           } catch (e) {
+
               console.error("Failed to fetch logs", e);
+
           } finally {
+
               setIsLoadingLogs(false);
+
           }
+
       }
+
   };
 
+
+
   return (
+
     <div className="space-y-6 relative">
+
+       {/* DEBUGGING PANEL START */}
+
+        <div style={{ border: '2px solid red', padding: '10px', backgroundColor: '#f0f0f0', borderRadius: '8px', margin: '16px 0' }}>
+
+          <h3 style={{ fontWeight: 'bold', fontSize: '16px', margin: '0 0 10px 0' }}>Debug Output:</h3>
+
+          <p style={{ margin: '0 0 5px 0' }}>Raw Response from /api/posts:</p>
+
+          <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', backgroundColor: 'white', padding: '10px', border: '1px solid #ccc', borderRadius: '4px' }}>
+
+            {rawText === null ? "Fetching..." : (rawText || "Response was empty.")}
+
+          </pre>
+
+        </div>
+
+        {/* DEBUGGING PANEL END */}
+
+
+
       <header>
+
         <h2 className="text-2xl font-bold text-slate-800">Campaign History</h2>
+
         <p className="text-slate-500">Monitor active broadcasts and view logs.</p>
+
       </header>
 
       {posts.length === 0 ? (
