@@ -32,6 +32,13 @@ queue = "socialsync-jobs"
 
 
 # ===========================
+# 🌎 GLOBAL VARIABLES
+# ===========================
+[vars]
+R2_PUBLIC_URL = "https://pub-7f46e1c470e344a1b108a62d73331dc5.r2.dev"
+
+
+# ===========================
 # 🔐 ENVIRONMENT VARIABLES
 # ===========================
 #
