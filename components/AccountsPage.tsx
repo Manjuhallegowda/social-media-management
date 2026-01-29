@@ -91,12 +91,21 @@ export const AccountsPage: React.FC = () => {
     }, 3000);
   };
 
-  const handleDisconnect = (account: SocialAccount) => {
+  const handleDisconnect = async (account: SocialAccount) => {
     if (confirm(`Are you sure you want to disconnect ${account.fb_page_name}? This will stop all future broadcasts to this account.`)) {
-        // In a real app, send DELETE request to API
-        // For now, assume success
-        setShowNotification({ type: 'success', message: `Disconnected ${account.fb_page_name}` });
-        setSelectedAccount(null);
+        try {
+            const res = await apiFetch(`/accounts/${account.id}`, { method: 'DELETE' });
+            if (res.ok) {
+                setAccounts(accounts.filter(acc => acc.id !== account.id));
+                setShowNotification({ type: 'success', message: `Disconnected ${account.fb_page_name}` });
+                setSelectedAccount(null);
+            } else {
+                setShowNotification({ type: 'error', message: `Failed to disconnect ${account.fb_page_name}` });
+            }
+        } catch (e) {
+            console.error("Failed to disconnect account", e);
+            setShowNotification({ type: 'error', message: `Failed to disconnect ${account.fb_page_name}` });
+        }
     }
   };
 
