@@ -72,6 +72,11 @@ const App: React.FC = () => {
     localStorage.removeItem('currentUsername');
   };
 
+  // Standalone Views (No Admin Sidebar)
+  if (currentView === View.ONBOARDING) return <OnboardingPage />;
+  if (currentView === View.PRIVACY) return <PrivacyPolicy />;
+  if (currentView === View.TERMS) return <TermsOfService />;
+  if (currentView === View.DATA_DELETION) return <DataDeletion />;
   // Show login page if not authenticated
   if (!isAuthenticated) {
     return <LoginPage onLogin={handleLogin} />;
@@ -82,11 +87,6 @@ const App: React.FC = () => {
     setCurrentView(view);
   };
 
-  // Standalone Views (No Admin Sidebar)
-  if (currentView === View.ONBOARDING) return <OnboardingPage />;
-  if (currentView === View.PRIVACY) return <PrivacyPolicy />;
-  if (currentView === View.TERMS) return <TermsOfService />;
-  if (currentView === View.DATA_DELETION) return <DataDeletion />;
 
   const renderView = () => {
     switch (currentView) {
